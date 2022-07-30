@@ -1,5 +1,9 @@
 import earcut from "earcut";
 import mapboxgl from "mapbox-gl";
+// @ts-ignore
+mapboxgl.workerClass =
+  // eslint-disable-next-line import/no-webpack-loader-syntax
+  require("worker-loader!mapbox-gl/dist/mapbox-gl-csp-worker").default;
 
 export function create(options) {
   const _options = {
