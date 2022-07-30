@@ -10,7 +10,7 @@ Create an account and get the public token the add to the environment variable `
 To get weather updates, setup an account on [OpenWeatherMap](https://openweathermap.org/)
 Get the `API_KEY` and add to the environment variable `REACT_APP_OPENWEATHER_API_KEY`
 
-Spin up the server `climate-tech-server` and point the server url to the environment variable `REACT_APP_BASE_URL`
+Spin up the server `climate-tech-server` and point the server url to the environment variable `REACT_APP_BASE_URL` and append `/api/v1`
 
 ## Available Scripts
 
