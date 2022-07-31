@@ -1,5 +1,9 @@
+import mapboxgl from "mapbox-gl";
 import { useEffect, useState } from "react";
-import { create } from "screens/Weather/InterpolateHeatmapLayer";
+// @ts-ignore
+mapboxgl.workerClass =
+  // eslint-disable-next-line import/no-webpack-loader-syntax
+  require("worker-loader!mapbox-gl/dist/mapbox-gl-csp-worker").default;
 
 interface Point {
   lat: number;
@@ -8,53 +12,56 @@ interface Point {
 }
 
 const useFetchWeather = (longitude: number, latitude: number) => {
-  const [weatherData, setWeatherData] = useState({
-    temperature: {},
-    humidity: {},
-  });
+  const [Geo, setGeo] = useState<any>({});
+
   const [loaded, setLoaded] = useState(false);
 
   const processWeatherData = async () => {
-    const startingLatitude = -80;
-    const startingLongitude = -180;
-    const endingLatitude = latitude;
-    const endingLongitude = longitude;
-    const n = 10;
+    const startingLatitude = latitude - 20;
+    const startingLongitude = longitude - 20;
+    const endingLatitude = latitude + 20;
+    const endingLongitude = longitude + 20;
+    const n = endingLatitude - startingLatitude;
 
     const points: Point[] = [];
+
     for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        points.push({
-          lat: startingLatitude + (i * (endingLatitude - startingLatitude)) / n,
-          lng:
-            startingLongitude + (j * (endingLongitude - startingLongitude)) / n,
-          val: 0,
-        });
-      }
+      points.push({
+        lat: startingLatitude + i,
+        lng: startingLongitude + i,
+        val: 0,
+      });
     }
+
+    let geoJSON: any = {
+      type: "FeatureCollection",
+      features: [],
+    };
 
     const weathers = await fetchWeather(points);
 
-    let temperatureData = points.map((point, index) => ({
-      ...point,
-      val: JSON.parse(weathers[index]).main.temp,
-    }));
+    for (let i = 0; i < weathers.length; i++) {
+      const weather = JSON.parse(weathers[i]);
+      const point = points[i];
+      point.val = weather.main.temp;
+      let coord = mapboxgl.MercatorCoordinate.fromLngLat(
+        { lng: point.lng, lat: point.lat },
+        0
+      );
+      geoJSON.features.push({
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [coord.x, coord.y, coord.z],
+        },
+        properties: {
+          temperature: weather.main.temp,
+          humidity: weather.main.humidity,
+        },
+      });
+    }
 
-    let humidityData = points.map((point, index) => ({
-      ...point,
-      val: JSON.parse(weathers[index]).main.humidity,
-    }));
-
-    setWeatherData({
-      temperature: create({
-        points: temperatureData,
-        layerID: "temperature",
-      }),
-      humidity: create({
-        points: humidityData,
-        layerID: "humidity",
-      }),
-    });
+    setGeo(geoJSON);
     setLoaded(true);
   };
 
@@ -63,7 +70,7 @@ const useFetchWeather = (longitude: number, latitude: number) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latitude, longitude]);
 
-  return { weatherData, loaded };
+  return { Geo, loaded };
 };
 
 const fetchWeather = async (points: Point[]) => {

@@ -16,15 +16,20 @@ interface Viewport {
   longitude: number;
 }
 
+const colors = {
+  temperature: ["#f26161", "#f03939", "#ea0909", "#9a0707"],
+  humidity: ["#c4d3e0", "#5dd3e9", "#0194fe", "#012b7e"],
+};
+
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || "";
 
 const Weather: React.FC = () => {
   const mapContainer = useRef<any>();
   const [viewport, setViewport] = useState<Viewport>({
-    latitude: 0,
-    longitude: 0,
+    latitude: 34,
+    longitude: 23,
   });
-  const { weatherData, loaded } = useFetchWeather(
+  const { Geo, loaded } = useFetchWeather(
     viewport.longitude,
     viewport.latitude
   );
@@ -67,9 +72,75 @@ const Weather: React.FC = () => {
 
     if (loaded) {
       map.on("load", async () => {
-        let layer = weatherData[activeWeather];
-        // @ts-ignore
-        map.addLayer(layer, "road-label");
+        // let layer = weatherData[activeWeather];
+        // // @ts-ignore
+        // map.addLayer(layer, "road-label");
+
+        map.addSource("weather", {
+          type: "geojson",
+          // @ts-ignore
+          data: Geo,
+        });
+
+        map.addLayer(
+          {
+            id: "weather-heat",
+            type: "heatmap",
+            source: "weather",
+            maxzoom: 15,
+            paint: {
+              // increase weight as diameter breast height increases
+              "heatmap-weight": {
+                property: activeWeather,
+                type: "exponential",
+                stops: [
+                  [activeWeather === "temperature" ? -40 : 30, 0],
+                  [activeWeather === "temperature" ? 40 : 100, 1],
+                ],
+              },
+              // increase intensity as zoom level increases
+              "heatmap-intensity": {
+                stops: [
+                  [11, 1],
+                  [15, 3],
+                ],
+              },
+              // assign color values be applied to points depending on their density
+              "heatmap-color": [
+                "interpolate",
+                ["linear"],
+                ["heatmap-density"],
+                0,
+                "rgba(236,222,239,0)",
+                0.2,
+                colors[activeWeather][0],
+                0.4,
+                colors[activeWeather][1],
+                0.6,
+                colors[activeWeather][2],
+                0.8,
+                colors[activeWeather][3],
+              ],
+              // increase radius as zoom increases
+              "heatmap-radius": {
+                stops: [
+                  [11, 15],
+                  [15, 20],
+                ],
+              },
+              // decrease opacity to transition into the circle layer
+              "heatmap-opacity": {
+                default: 1,
+                stops: [
+                  [14, 1],
+                  [15, 0],
+                ],
+              },
+            },
+          },
+          "waterway-label"
+        );
+
         map.addControl(geocoder, "top-left");
 
         let _center = turf.point([viewport.longitude, viewport.latitude]);
@@ -92,8 +163,9 @@ const Weather: React.FC = () => {
             type: "fill",
             source: "circleData",
             paint: {
-              "fill-color": "blue",
-              "fill-opacity": 0.4,
+              "fill-color": "transparent",
+              "fill-outline-color": "blue",
+              "fill-antialias": true,
             },
           });
         }
@@ -136,6 +208,51 @@ const Weather: React.FC = () => {
       </div>
 
       <div className="absolute z-10 right-2 md:right-5 bottom-5">
+        <div className="bg-white p-2 rounded mb-5" id="legend">
+          <strong>Heatmap Scale</strong>
+          <nav className="legend my-1">
+            <label
+              className={`p-1 mr-2`}
+              style={{
+                background: "rgba(236,222,239,0)",
+              }}
+            >
+              0 - 20%
+            </label>
+            <label
+              className={`p-1 text-xs text-white`}
+              style={{
+                background: colors[activeWeather][0],
+              }}
+            >
+              40%
+            </label>
+            <label
+              className={`p-1 text-xs text-white`}
+              style={{
+                background: colors[activeWeather][1],
+              }}
+            >
+              60%
+            </label>
+            <label
+              className={`p-1 text-xs text-white`}
+              style={{
+                background: colors[activeWeather][2],
+              }}
+            >
+              80%
+            </label>
+            <label
+              className={`p-1 text-xs text-white`}
+              style={{
+                background: colors[activeWeather][3],
+              }}
+            >
+              100%
+            </label>
+          </nav>
+        </div>
         <button
           onClick={() => setActiveWeather("temperature")}
           className={itemClassUtil("temperature")}
